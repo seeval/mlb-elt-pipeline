@@ -47,9 +47,8 @@ class MLBApiClient:
                     raise
                 time.sleep(self.RETRY_BACKOFF_SECONDS ** attempt)
         
-        def get_schedule(self, start_date: str, end_date: str) -> dict:
-            """
-            Fetch game schedule for a date range.
+    def get_schedule(self, start_date: str, end_date: str) -> dict:
+            """            Fetch game schedule for a date range.
             Dates must be in YYYY-MM-DD format.
             """
             return self._get(
@@ -63,7 +62,7 @@ class MLBApiClient:
                         },
                     )
 
-        def get_boxscore(self, game_pk: int) -> dict:
+    def get_boxscore(self, game_pk: int) -> dict:
             """
             Fetch full boxscore for a single game.
             """
