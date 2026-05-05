@@ -8,6 +8,7 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   GCS_BUCKET_NAME: ${{ vars.GCS_BUCKET_NAME }}
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID}}
 
 jobs:
   extract:
