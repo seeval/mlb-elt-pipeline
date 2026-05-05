@@ -1,0 +1,35 @@
+name: Daily MLB Extraction Pipeline
+
+on:
+  schedule:
+    - cron: "0 14 * * *"  # 9AM ET daily 
+  workflow_dispatch:       # keep manual trigger for testing
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  GCS_BUCKET_NAME: ${{ vars.GCS_BUCKET_NAME }}
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run extraction pipeline
+        run: uv run python -m extraction.pipeline
