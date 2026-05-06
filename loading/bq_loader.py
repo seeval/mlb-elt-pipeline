@@ -42,25 +42,34 @@ class BQLoader:
     def _table_ref(self, table_name: str) -> str:
         return f"{self.project}.{self.dataset}.{table_name}"
 
+    def _truncate_partition(self, table_name: str, game_date: date) -> None:
+        """
+        Deletes all rows for a given game_date partition before inserting.
+        """
+        partition_id = game_date.strftime("%Y%m%d")
+        query = f"""
+            DELETE FROM `{self._table_ref(table_name)}`
+            WHERE game_date = '{game_date.isoformat()}'
+        """
+        self.client.query(query).result()
+        logger.info("Truncated partition %s in %s", partition_id, table_name)
+
     def _insert_rows(self, table_name: str, rows: list[dict]) -> None:
-        """
-        Insert rows into BigQuery using streaming insert API.
-        Logs errors per row without raising - partial success is ok. dbt tests will surface missing data downstream.
-        """
         if not rows:
             logger.warning("No rows to insert for %s", table_name)
             return
 
         errors = self.client.insert_rows_json(
-                self._table_ref(table_name),
-                rows,
-                )
+            self._table_ref(table_name),
+            rows,
+        )
 
         if errors:
             for error in errors:
                 logger.error("BQ insert error in %s: %s", table_name, error)
         else:
             logger.info("Inserted %d rows into %s", len(rows), table_name)
+
 
     def load_boxscore(self, game_pk: int, game_date: date, raw: dict) -> None:
         """

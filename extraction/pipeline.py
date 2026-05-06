@@ -49,12 +49,20 @@ class ExtractionPipeline:
         logger.info("Pipeline complete. Processed %d games.", len(records))
 
     def _process_boxscores(self, records: list[GameRecord]) -> None:
+        # Collect unique dates in this run
+        unique_dates = {record.game_date for record in records}
+
+        # Truncate partitions once per date before any inserts
+        for game_date in unique_dates:
+            self.bq_loader._truncate_partition("raw_team_game_stats", game_date)
+            self.bq_loader._truncate_partition("raw_player_batting_stats", game_date)
+            self.bq_loader._truncate_partition("raw_player_pitching_stats", game_date)
+
         for record in records:
             try:
                 logger.info("Fetching boxscore for game_pk=%d", record.game_pk)
                 boxscore = self.mlb_client.get_boxscore(record.game_pk)
 
-                # Write raw JSON to GCS
                 self.gcs_loader.write_json(
                     payload=boxscore,
                     data_type="boxscores",
@@ -62,7 +70,6 @@ class ExtractionPipeline:
                     filename=f"gamePk={record.game_pk}.json",
                 )
 
-                # Load parsed rows into BigQuery
                 self.bq_loader.load_boxscore(
                     game_pk=record.game_pk,
                     game_date=record.game_date,
@@ -76,7 +83,6 @@ class ExtractionPipeline:
                     e,
                     exc_info=True,
                 )
-
 
 def build_pipeline() -> ExtractionPipeline:
     """
