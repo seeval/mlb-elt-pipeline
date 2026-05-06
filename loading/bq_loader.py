@@ -45,7 +45,12 @@ class BQLoader:
     def _truncate_partition(self, table_name: str, game_date: date) -> None:
         """
         Deletes all rows for a given game_date partition before inserting.
-        """
+        NOTE: BigQuery streaming inserts enter a buffer before reaching permanent
+        storage. DELETE DML only affects permanent storage. Running this method
+        within ~90 seconds of a prior streaming insert may not delete buffered rows.
+        In normal daily operation this is not an issue — the buffer will have
+        flushed long before the next scheduled run.
+            """
         partition_id = game_date.strftime("%Y%m%d")
         query = f"""
             DELETE FROM `{self._table_ref(table_name)}`
