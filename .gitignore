@@ -4,3 +4,5 @@ sa-key.json
 .python-version
 __pycache__
 profiles.yml
+mlb_dbt/logs/
+logs/
