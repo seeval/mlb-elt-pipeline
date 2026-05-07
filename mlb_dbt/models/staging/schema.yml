@@ -1,0 +1,63 @@
+version: 2
+
+models:
+  - name: stg_mlb__team_game_stats
+    description: "Cleaned and renamed team-level batting and pitching stats. One row per team per game."
+    columns:
+      - name: game_pk
+        description: "MLB unique game identifier"
+        tests:
+          - not_null
+      - name: team_id
+        description: "MLB unique team identifier"
+        tests:
+          - not_null
+      - name: team_side
+        description: "Whether the team was home or away"
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['home', 'away']
+      - name: game_date
+        description: "Date the game was played"
+        tests:
+          - not_null
+
+  - name: stg_mlb__player_batting_stats
+    description: "Cleaned player batting stats. One row per batter per game. Includes game-level and season-snapshot stats."
+    columns:
+      - name: game_pk
+        tests:
+          - not_null
+      - name: player_id
+        tests:
+          - not_null
+      - name: team_side
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['home', 'away']
+      - name: game_date
+        tests:
+          - not_null
+
+  - name: stg_mlb__player_pitching_stats
+    description: "Cleaned player pitching stats. One row per pitcher per game. Includes game-level and season-snapshot stats."
+    columns:
+      - name: game_pk
+        tests:
+          - not_null
+      - name: player_id
+        tests:
+          - not_null
+      - name: team_side
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['home', 'away']
+      - name: game_date
+        tests:
+          - not_null

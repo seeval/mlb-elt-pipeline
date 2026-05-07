@@ -1,0 +1,17 @@
+version: 2
+
+sources:
+  - name: mlb_raw
+    database: mlb-elt-pipeline
+    schema: mlb_raw
+    description: "Raw MLB data loaded from GCS via Python pipeline"
+
+    tables:
+      - name: raw_team_game_stats
+        description: "One row per team per game. Contains batting and pitching stats for the game."
+
+      - name: raw_player_batting_stats
+        description: "One row per batter per game. Contains game-level and season-snapshot batting stats."
+
+      - name: raw_player_pitching_stats
+        description: "One row per pitcher per game. Contains game-level and season-snapshot pitching stats."
