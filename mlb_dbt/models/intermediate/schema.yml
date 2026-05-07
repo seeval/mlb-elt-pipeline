@@ -1,0 +1,22 @@
+version: 2
+
+models:
+  - name: int_game_series_map
+    description: >
+      One row per game. Assigns a series_id surrogate key and true series_start_date
+      derived from MIN(game_date) within a 7-day window per home/away team pair.
+      This corrects the approximate series_start_date estimated at extraction time.
+    columns:
+      - name: game_pk
+        description: "MLB unique game identifier"
+        tests:
+          - not_null
+          - unique
+      - name: series_id
+        description: "Surrogate key: MD5 hash of home_team_id + away_team_id + series_start_date"
+        tests:
+          - not_null
+      - name: series_start_date
+        description: "True series start date derived from MIN(game_date) within matchup window"
+        tests:
+          - not_null

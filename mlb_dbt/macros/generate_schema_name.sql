@@ -2,6 +2,6 @@
     {%- if custom_schema_name is none -%}
         {{ default_schema }}
     {%- else -%}
-        {{ custom_schema_name }}
+        mlb_{{ custom_schema_name }}
     {%- endif -%}
 {%- endmacro %}
