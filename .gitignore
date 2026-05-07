@@ -3,3 +3,4 @@ sa-key.json
 .venv
 .python-version
 __pycache__
+profiles.yml
