@@ -34,3 +34,36 @@ jobs:
 
       - name: Run extraction pipeline
         run: uv run python -m extraction.pipeline
+
+      - name: Write dbt profiles
+        run: |
+          mkdir -p ~/.dbt
+          cat <<EOF > ~/.dbt/profiles.yml
+          mlb_dbt:
+            outputs:
+              dev:
+                type: bigquery
+                method: service-account-json
+                project: ${{ secrets.GCP_PROJECT_ID }}
+                dataset: mlb_staging
+                threads: 4
+                location: us-central1
+                keyfile_json:
+                  type: service_account
+                  project_id: ${{ secrets.GCP_PROJECT_ID }}
+                  private_key_id: ${{ secrets.GCP_SA_KEY_ID }}
+                  private_key: ${{ secrets.GCP_SA_PRIVATE_KEY }}
+                  client_email: ${{ secrets.GCP_SA_CLIENT_EMAIL }}
+                  client_id: ${{ secrets.GCP_SA_CLIENT_ID }}
+                  auth_uri: https://accounts.google.com/o/oauth2/auth
+                  token_uri: https://oauth2.googleapis.com/token
+            target: dev
+          EOF
+
+      - name: Run dbt
+        working-directory: mlb_dbt
+        run: |
+          uv run dbt deps
+          uv run dbt run
+          uv run dbt test
+
