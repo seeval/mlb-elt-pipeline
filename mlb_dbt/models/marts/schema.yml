@@ -1,0 +1,47 @@
+version: 2
+
+models:
+  - name: fct_batter_series_stats
+    description: "One row per batter per series. Counting stats summed across games. Rate stats recomputed from counting stats."
+    columns:
+      - name: batter_series_id
+        description: "Surrogate key: MD5 hash of player_id + series_id"
+        tests:
+          - not_null
+          - unique
+      - name: player_id
+        tests:
+          - not_null
+      - name: series_id
+        tests:
+          - not_null
+
+  - name: fct_team_series_batting
+    description: "One row per team per series. Team batting stats aggregated across games in the series."
+    columns:
+      - name: team_series_id
+        description: "Surrogate key: MD5 hash of team_id + series_id"
+        tests:
+          - not_null
+          - unique
+      - name: team_id
+        tests:
+          - not_null
+      - name: series_id
+        tests:
+          - not_null
+
+  - name: fct_team_series_pitching
+    description: "One row per team per series. Team pitching stats aggregated across games in the series."
+    columns:
+      - name: team_series_id
+        description: "Surrogate key: MD5 hash of team_id + series_id"
+        tests:
+          - not_null
+          - unique
+      - name: team_id
+        tests:
+          - not_null
+      - name: series_id
+        tests:
+          - not_null
