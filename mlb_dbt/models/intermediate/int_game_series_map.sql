@@ -1,20 +1,39 @@
-with games as (
+with all_games as (
+
+    select * from {{ ref('stg_mlb__team_game_stats') }}
+
+),
+
+-- A game_pk can appear under multiple game_dates if a game is
+-- rescheduled or the API returns it on multiple days.
+-- Keep only the most recent game_date per game_pk to avoid
+-- fan-out in the self-join below.
+deduped as (
+
+    select *
+    from all_games
+    qualify row_number() over (
+        partition by game_pk, team_side
+        order by game_date desc
+    ) = 1
+
+),
+
+games as (
 
     select
         game_pk,
         game_date,
         team_id,
-        team_side,
-        game_date as approx_series_start
+        team_side
 
-    from {{ ref('stg_mlb__team_game_stats') }}
-    where team_side = 'home'  -- one row per game, not two
+    from deduped
+    where team_side = 'home'
 
 ),
 
 home_away as (
 
-    -- reconstruct home/away team IDs per game from team stats
     select
         home.game_pk,
         home.game_date,
@@ -22,7 +41,7 @@ home_away as (
         away.team_id                          as away_team_id
 
     from games home
-    inner join {{ ref('stg_mlb__team_game_stats') }} away
+    inner join deduped away
         on home.game_pk = away.game_pk
         and away.team_side = 'away'
 
