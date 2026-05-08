@@ -1,3 +1,4 @@
+import json
 import logging
 from dataclasses import dataclass
 from datetime import date
@@ -6,10 +7,12 @@ from google.cloud import bigquery
 
 logger = logging.getLogger(__name__)
 
+
 def _safe_float(value: str | int | float | None) -> float | None:
     """
     Converts API string values to float, returning None for placeholders.
-    MLB API uses '-.--' '-.--' and similar strings for undefined ratios.
+    The MLB API uses '-.--', '.---', and similar strings for undefined ratios.
+    Storing these as NULL is correct — they are undefined, not zero.
     """
     if value is None:
         return None
@@ -18,9 +21,12 @@ def _safe_float(value: str | int | float | None) -> float | None:
     except (ValueError, TypeError):
         return None
 
+
 def _safe_int(value: str | int | None) -> int | None:
     """
     Converts batting order strings and similar fields to int.
+    battingOrder is returned as "100", "200" etc. (multiples of 100).
+    Dividing by 100 gives lineup position 1-9.
     """
     if value is None:
         return None
@@ -28,69 +34,16 @@ def _safe_int(value: str | int | None) -> int | None:
         return int(value)
     except (ValueError, TypeError):
         return None
+
 
 @dataclass
 class BQLoader:
     """
     Parses raw MLB boxscore JSON and loads flattened rows into BigQuery.
-    Responsibilities: field extraction, type coercion, schema enforcement, and BigQuery insert operations.
+    Responsible for: field extraction, type coercion, schema enforcement,
+    and BigQuery load job operations.
+    Does not read from GCS — receives parsed dict from caller.
     """
-    client: bigquery.Client
-    project: str
-    dataset: str
-
-    def _table_ref(self, table_name: str) -> str:
-        return f"{self.project}.{self.dataset}.{table_name}"
-
-    def _truncate_partition(self, table_name: str, game_date: date) -> None:
-        """
-        Deletes all rows for a given game_date partition before inserting.
-        NOTE: BigQuery streaming inserts enter a buffer before reaching permanent
-        storage. DELETE DML only affects permanent storage. Running this method
-        within ~90 seconds of a prior streaming insert may not delete buffered rows.
-        In normal daily operation this is not an issue — the buffer will have
-        flushed long before the next scheduled run.
-            """
-        partition_id = game_date.strftime("%Y%m%d")
-        query = f"""
-            DELETE FROM `{self._table_ref(table_name)}`
-            WHERE game_date = '{game_date.isoformat()}'
-        """
-        self.client.query(query).result()
-        logger.info("Truncated partition %s in %s", partition_id, table_name)
-
-import json
-import logging
-import tempfile
-from dataclasses import dataclass
-from datetime import date
-from pathlib import Path
-
-from google.cloud import bigquery
-
-logger = logging.getLogger(__name__)
-
-
-def _safe_float(value: str | int | float | None) -> float | None:
-    if value is None:
-        return None
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        return None
-
-
-def _safe_int(value: str | int | None) -> int | None:
-    if value is None:
-        return None
-    try:
-        return int(value)
-    except (ValueError, TypeError):
-        return None
-
-
-@dataclass
-class BQLoader:
     client: bigquery.Client
     project: str
     dataset: str
@@ -126,7 +79,6 @@ class BQLoader:
         job_config = bigquery.LoadJobConfig(
             write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
             source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
-            schema_update_options=[],
         )
 
         load_job = self.client.load_table_from_json(
@@ -135,7 +87,7 @@ class BQLoader:
             job_config=job_config,
         )
 
-        load_job.result()  # blocks until job completes
+        load_job.result()
 
         logger.info(
             "Loaded %d rows into %s via load job",
@@ -179,7 +131,6 @@ class BQLoader:
             "game_date": game_date.isoformat(),
             "team_id": team_id,
             "team_side": team_side,
-            # batting
             "b_fly_outs": _safe_int(b.get("flyOuts")),
             "b_ground_outs": _safe_int(b.get("groundOuts")),
             "b_runs": _safe_int(b.get("runs")),
@@ -200,7 +151,6 @@ class BQLoader:
             "b_left_on_base": _safe_int(b.get("leftOnBase")),
             "b_stolen_bases": _safe_int(b.get("stolenBases")),
             "b_caught_stealing": _safe_int(b.get("caughtStealing")),
-            # pitching
             "p_fly_outs": _safe_int(p.get("flyOuts")),
             "p_ground_outs": _safe_int(p.get("groundOuts")),
             "p_runs": _safe_int(p.get("runs")),
@@ -241,7 +191,6 @@ class BQLoader:
             g = stats.get("batting", {})
             s = season.get("batting", {})
 
-            # Skip players with no batting appearance in this game
             if not g or g.get("atBats") is None:
                 continue
 
@@ -256,7 +205,6 @@ class BQLoader:
                 "player_id": player_data.get("person", {}).get("id"),
                 "player_name": player_data.get("person", {}).get("fullName"),
                 "batting_order": batting_order,
-                # game stats
                 "g_at_bats": _safe_int(g.get("atBats")),
                 "g_runs": _safe_int(g.get("runs")),
                 "g_hits": _safe_int(g.get("hits")),
@@ -275,7 +223,6 @@ class BQLoader:
                 "g_stolen_bases": _safe_int(g.get("stolenBases")),
                 "g_caught_stealing": _safe_int(g.get("caughtStealing")),
                 "g_hit_by_pitch": _safe_int(g.get("hitByPitch")),
-                # season snapshot
                 "s_games_played": _safe_int(s.get("gamesPlayed")),
                 "s_at_bats": _safe_int(s.get("atBats")),
                 "s_hits": _safe_int(s.get("hits")),
@@ -313,7 +260,6 @@ class BQLoader:
             g = stats.get("pitching", {})
             s = season.get("pitching", {})
 
-            # Skip players with no pitching appearance in this game
             if not g or g.get("inningsPitched") is None:
                 continue
 
@@ -324,7 +270,6 @@ class BQLoader:
                 "team_side": team_side,
                 "player_id": player_data.get("person", {}).get("id"),
                 "player_name": player_data.get("person", {}).get("fullName"),
-                # game stats
                 "g_innings_pitched": _safe_float(g.get("inningsPitched")),
                 "g_hits": _safe_int(g.get("hits")),
                 "g_runs": _safe_int(g.get("runs")),
@@ -342,7 +287,6 @@ class BQLoader:
                 "g_hit_by_pitch": _safe_int(g.get("hitByPitch")),
                 "g_wild_pitches": _safe_int(g.get("wildPitches")),
                 "g_balks": _safe_int(g.get("balks")),
-                # season snapshot
                 "s_games_played": _safe_int(s.get("gamesPlayed")),
                 "s_games_started": _safe_int(s.get("gamesStarted")),
                 "s_wins": _safe_int(s.get("wins")),
