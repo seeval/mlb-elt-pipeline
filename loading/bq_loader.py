@@ -59,22 +59,89 @@ class BQLoader:
         self.client.query(query).result()
         logger.info("Truncated partition %s in %s", partition_id, table_name)
 
+import json
+import logging
+import tempfile
+from dataclasses import dataclass
+from datetime import date
+from pathlib import Path
+
+from google.cloud import bigquery
+
+logger = logging.getLogger(__name__)
+
+
+def _safe_float(value: str | int | float | None) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return None
+
+
+def _safe_int(value: str | int | None) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return None
+
+
+@dataclass
+class BQLoader:
+    client: bigquery.Client
+    project: str
+    dataset: str
+
+    def _table_ref(self, table_name: str) -> str:
+        return f"{self.project}.{self.dataset}.{table_name}"
+
+    def _truncate_partition(self, table_name: str, game_date: date) -> None:
+        """
+        Deletes all rows for a given game_date partition before inserting.
+        Safe to call immediately before a load job because load jobs write
+        directly to permanent storage, bypassing the streaming buffer.
+        NOTE: This is NOT safe when using streaming inserts (insert_rows_json)
+        because streaming buffer rows cannot be deleted by DML.
+        """
+        query = f"""
+            DELETE FROM `{self._table_ref(table_name)}`
+            WHERE game_date = '{game_date.isoformat()}'
+        """
+        self.client.query(query).result()
+        logger.info("Truncated partition %s in %s", game_date.isoformat(), table_name)
+
     def _insert_rows(self, table_name: str, rows: list[dict]) -> None:
+        """
+        Loads rows into BigQuery using a load job.
+        Load jobs write directly to permanent storage — no streaming buffer.
+        This makes them compatible with the DELETE in _truncate_partition.
+        """
         if not rows:
             logger.warning("No rows to insert for %s", table_name)
             return
 
-        errors = self.client.insert_rows_json(
-            self._table_ref(table_name),
-            rows,
+        job_config = bigquery.LoadJobConfig(
+            write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
+            source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
+            schema_update_options=[],
         )
 
-        if errors:
-            for error in errors:
-                logger.error("BQ insert error in %s: %s", table_name, error)
-        else:
-            logger.info("Inserted %d rows into %s", len(rows), table_name)
+        load_job = self.client.load_table_from_json(
+            json_rows=rows,
+            destination=self._table_ref(table_name),
+            job_config=job_config,
+        )
 
+        load_job.result()  # blocks until job completes
+
+        logger.info(
+            "Loaded %d rows into %s via load job",
+            load_job.output_rows,
+            table_name,
+        )
 
     def load_boxscore(self, game_pk: int, game_date: date, raw: dict) -> None:
         """
