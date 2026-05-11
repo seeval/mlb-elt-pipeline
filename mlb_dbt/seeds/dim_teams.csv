@@ -1,0 +1,31 @@
+team_id,team_name,team_abbreviation,league,division
+108,Los Angeles Angels,LAA,AL,West
+109,Arizona Diamondbacks,ARI,NL,West
+110,Baltimore Orioles,BAL,AL,East
+111,Boston Red Sox,BOS,AL,East
+112,Chicago Cubs,CHC,NL,Central
+113,Cincinnati Reds,CIN,NL,Central
+114,Cleveland Guardians,CLE,AL,Central
+115,Colorado Rockies,COL,NL,West
+116,Detroit Tigers,DET,AL,Central
+117,Houston Astros,HOU,AL,West
+118,Kansas City Royals,KC,AL,Central
+119,Los Angeles Dodgers,LAD,NL,West
+120,Washington Nationals,WSH,NL,East
+121,New York Mets,NYM,NL,East
+133,Oakland Athletics,ATH,AL,West
+134,Pittsburgh Pirates,PIT,NL,Central
+135,San Diego Padres,SD,NL,West
+136,Seattle Mariners,SEA,AL,West
+137,San Francisco Giants,SF,NL,West
+138,St. Louis Cardinals,STL,NL,Central
+139,Tampa Bay Rays,TB,AL,East
+140,Texas Rangers,TEX,AL,West
+141,Toronto Blue Jays,TOR,AL,East
+142,Minnesota Twins,MIN,AL,Central
+143,Philadelphia Phillies,PHI,NL,East
+144,Atlanta Braves,ATL,NL,East
+145,Chicago White Sox,CWS,AL,Central
+146,Miami Marlins,MIA,NL,East
+147,New York Yankees,NYY,AL,East
+158,Milwaukee Brewers,MIL,NL,Central

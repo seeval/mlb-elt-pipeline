@@ -40,3 +40,7 @@ models:
     marts:
       +materialized: table
       +schema: marts
+
+seeds:
+  mlb_dbt:
+    +schema: staging

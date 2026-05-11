@@ -10,18 +10,27 @@ series_map as (
 
 ),
 
+teams as (
+
+    select * from {{ ref('dim_teams') }}
+
+),
+
 joined as (
 
     select
         t.team_id,
         t.team_side,
+        dt.team_name,
+        dt.team_abbreviation,
+        dt.league,
+        dt.division,
         s.series_id,
         s.series_start_date,
         s.home_team_id,
         s.away_team_id,
         count(distinct t.game_pk)           as games_in_series,
 
-        -- counting stats
         sum(t.batting_runs)                 as series_runs,
         sum(t.batting_hits)                 as series_hits,
         sum(t.batting_doubles)              as series_doubles,
@@ -37,7 +46,6 @@ joined as (
         sum(t.batting_stolen_bases)         as series_stolen_bases,
         sum(t.batting_caught_stealing)      as series_caught_stealing,
 
-        -- rate stats recomputed from counting stats
         safe_divide(
             sum(t.batting_hits),
             sum(t.batting_at_bats)
@@ -61,10 +69,16 @@ joined as (
     from team_stats t
     inner join series_map s
         on t.game_pk = s.game_pk
+    left join teams dt
+        on t.team_id = dt.team_id
 
     group by
         t.team_id,
         t.team_side,
+        dt.team_name,
+        dt.team_abbreviation,
+        dt.league,
+        dt.division,
         s.series_id,
         s.series_start_date,
         s.home_team_id,

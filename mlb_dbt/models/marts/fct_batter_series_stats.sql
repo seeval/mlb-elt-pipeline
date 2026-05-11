@@ -10,18 +10,27 @@ series_map as (
 
 ),
 
+teams as (
+
+    select * from {{ ref('dim_teams') }}
+
+),
+
 joined as (
 
     select
         b.player_id,
         b.player_name,
         b.team_id,
+        dt.team_name,
+        dt.team_abbreviation,
+        dt.league,
+        dt.division,
         s.series_id,
         s.series_start_date,
         s.home_team_id,
         s.away_team_id,
 
-        -- counting stats: sum across games in series
         sum(b.game_at_bats)             as series_at_bats,
         sum(b.game_hits)                as series_hits,
         sum(b.game_doubles)             as series_doubles,
@@ -37,8 +46,6 @@ joined as (
         sum(b.game_left_on_base)        as series_left_on_base,
         count(distinct b.game_pk)       as games_played_in_series,
 
-        -- rate stats: recomputed from counting stats
-        -- never average a rate stat across games
         safe_divide(
             sum(b.game_hits),
             sum(b.game_at_bats)
@@ -59,8 +66,6 @@ joined as (
             sum(b.game_at_bats)
         )                               as series_slg,
 
-        -- season snapshot: take the latest value within the series
-        -- season stats accumulate — the last game's snapshot is most current
         max(b.season_games_played)      as season_games_played,
         max(b.season_hits)              as season_hits,
         max(b.season_home_runs)         as season_home_runs,
@@ -73,11 +78,17 @@ joined as (
     from batting b
     inner join series_map s
         on b.game_pk = s.game_pk
+    left join teams dt
+        on b.team_id = dt.team_id
 
     group by
         b.player_id,
         b.player_name,
         b.team_id,
+        dt.team_name,
+        dt.team_abbreviation,
+        dt.league,
+        dt.division,
         s.series_id,
         s.series_start_date,
         s.home_team_id,
@@ -88,9 +99,8 @@ joined as (
 final as (
 
     select
-        -- surrogate key for this fact table
         {{ dbt_utils.generate_surrogate_key(['player_id', 'series_id']) }}
-                                        as batter_series_id,
+                                            as batter_series_id,
         *
     from joined
 
