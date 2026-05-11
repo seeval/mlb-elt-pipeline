@@ -16,11 +16,33 @@ teams as (
 
 ),
 
+-- Canonicalize player names: the MLB API occasionally returns inconsistent
+-- encoding for the same player_id (e.g. accent mark variations).
+-- Take the most frequently occurring name per player_id as the canonical form.
+-- player_id is the stable identifier — player_name is display only.
+canonical_names as (
+
+    select
+        player_id,
+        player_name,
+        row_number() over (
+            partition by player_id
+            order by count(*) desc
+        ) as name_rank
+    from {{ ref('stg_mlb__player_batting_stats') }}
+    group by player_id, player_name
+    qualify row_number() over (
+        partition by player_id
+        order by count(*) desc
+    ) = 1
+
+),
+
 joined as (
 
     select
         b.player_id,
-        b.player_name,
+        cn.player_name,                -- canonical name, not raw name
         b.team_id,
         dt.team_name,
         dt.team_abbreviation,
@@ -65,9 +87,7 @@ joined as (
                 + (3 * sum(b.game_home_runs)),
             sum(b.game_at_bats)
         )                               as series_slg,
-        
-        
-        -- OPS = OBP + SLG, recomputed from counting stats
+
         safe_divide(
             sum(b.game_hits)
                 + sum(b.game_walks)
@@ -83,7 +103,6 @@ joined as (
             sum(b.game_at_bats)
         )                               as series_ops,
 
-
         max(b.season_games_played)      as season_games_played,
         max(b.season_hits)              as season_hits,
         max(b.season_home_runs)         as season_home_runs,
@@ -96,12 +115,14 @@ joined as (
     from batting b
     inner join series_map s
         on b.game_pk = s.game_pk
+    inner join canonical_names cn
+        on b.player_id = cn.player_id
     left join teams dt
         on b.team_id = dt.team_id
 
     group by
         b.player_id,
-        b.player_name,
+        cn.player_name,
         b.team_id,
         dt.team_name,
         dt.team_abbreviation,
@@ -118,7 +139,7 @@ final as (
 
     select
         {{ dbt_utils.generate_surrogate_key(['player_id', 'series_id']) }}
-                                            as batter_series_id,
+                                        as batter_series_id,
         *
     from joined
 
