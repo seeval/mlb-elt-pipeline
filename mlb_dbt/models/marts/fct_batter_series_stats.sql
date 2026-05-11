@@ -65,6 +65,24 @@ joined as (
                 + (3 * sum(b.game_home_runs)),
             sum(b.game_at_bats)
         )                               as series_slg,
+        
+        
+        -- OPS = OBP + SLG, recomputed from counting stats
+        safe_divide(
+            sum(b.game_hits)
+                + sum(b.game_walks)
+                + sum(b.game_hit_by_pitch),
+            sum(b.game_plate_appearances)
+        )
+        +
+        safe_divide(
+            sum(b.game_hits)
+                + sum(b.game_doubles)
+                + (2 * sum(b.game_triples))
+                + (3 * sum(b.game_home_runs)),
+            sum(b.game_at_bats)
+        )                               as series_ops,
+
 
         max(b.season_games_played)      as season_games_played,
         max(b.season_hits)              as season_hits,
