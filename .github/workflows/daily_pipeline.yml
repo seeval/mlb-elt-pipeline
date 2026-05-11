@@ -64,6 +64,7 @@ jobs:
         working-directory: mlb_dbt
         run: |
           uv run dbt deps
+          uv run dbt seed
           uv run dbt run
           uv run dbt test
 
