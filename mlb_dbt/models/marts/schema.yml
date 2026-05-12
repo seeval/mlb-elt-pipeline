@@ -2,7 +2,12 @@ version: 2
 
 models:
   - name: fct_batter_series_stats
-    description: "One row per batter per series. Counting stats summed across games. Rate stats recomputed from counting stats."
+    description: >
+      Fact table at the grain of one row per batter per series.
+      Counting stats are summed across games within the series.
+      Rate stats (AVG, OBP, SLG, OPS) are recomputed from counting stats
+      Player names are canonicalized to the most frequent variant per player_id to handle API encoding inconsistencies.
+      Season stats represent a snapshot at the time of the last game in the series.
     columns:
       - name: batter_series_id
         description: "Surrogate key: MD5 hash of player_id + series_id"
@@ -10,14 +15,51 @@ models:
           - not_null
           - unique
       - name: player_id
+        description: "MLB assigned player identifier. Stable across name changes and encoding variants."
         tests:
           - not_null
+      - name: player_name
+        description: "Canonical player name. Most frequent API-returned variant per player_id."
+      - name: team_id
+        description: "MLB assigned team identifier."
+      - name: team_name
+        description: "Full team name from dim_teams seed."
+      - name: team_abbreviation
+        description: "Standard team abbreviation e.g. NYY, BOS."
+      - name: league
+        description: "AL or NL"
+      - name: division
+        description: "East, Central, or West"
       - name: series_id
+        description: "Surrogate key: MD5 hash of home_team_id + away_team_id + series_start_date"
         tests:
           - not_null
+      - name: series_start_date
+        description: "First game date of the series. Derived from MIN(game_date) within a 7-day home/away matchup window."
+      - name: series_at_bats
+        description: "Total at bats across all games in the series."
+      - name: series_hits
+        description: "Total hits across all games in the series."
+      - name: series_home_runs
+        description: "Total home runs across all games in the series."
+      - name: series_rbi
+        description: "Total RBI across all games in the series."
+      - name: series_avg
+        description: "Batting average for the series. Computed as SUM(hits) / SUM(at_bats). Not an average of game-level AVGs."
+      - name: series_obp
+        description: "On-base percentage for the series. Computed from counting stats."
+      - name: series_slg
+        description: "Slugging percentage for the series. Computed from counting stats."
+      - name: series_ops
+        description: "On-base plus slugging for the series. Computed as series_obp + series_slg."
+      - name: games_played_in_series
+        description: "Number of distinct games the batter appeared in during the series."
 
   - name: fct_team_series_batting
-    description: "One row per team per series. Team batting stats aggregated across games in the series."
+    description: >
+      Fact table at the grain of one row per team per series.
+      Team-level batting stats aggregated across all games in the series.
+      Rate stats recomputed from counting stats.
     columns:
       - name: team_series_id
         description: "Surrogate key: MD5 hash of team_id + series_id"
@@ -27,12 +69,31 @@ models:
       - name: team_id
         tests:
           - not_null
+      - name: team_name
+        description: "Full team name from dim_teams seed."
+      - name: team_abbreviation
+        description: "Standard team abbreviation."
+      - name: team_side
+        description: "Whether the team was home or away in this series."
       - name: series_id
         tests:
           - not_null
+      - name: series_runs
+        description: "Total runs scored across all games in the series."
+      - name: series_avg
+        description: "Team batting average for the series. Computed from counting stats."
+      - name: series_obp
+        description: "Team OBP for the series. Computed from counting stats."
+      - name: series_slg
+        description: "Team SLG for the series. Computed from counting stats."
+      - name: games_in_series
+        description: "Number of games in the series."
 
   - name: fct_team_series_pitching
-    description: "One row per team per series. Team pitching stats aggregated across games in the series."
+    description: >
+      Fact table at the grain of one row per team per series.
+      Team-level pitching stats aggregated across all games in the series.
+      ERA, WHIP, K/9, BB/9 recomputed from counting stats.
     columns:
       - name: team_series_id
         description: "Surrogate key: MD5 hash of team_id + series_id"
@@ -42,6 +103,20 @@ models:
       - name: team_id
         tests:
           - not_null
+      - name: team_name
+        description: "Full team name from dim_teams seed."
+      - name: team_side
+        description: "Whether the team was home or away in this series."
       - name: series_id
         tests:
           - not_null
+      - name: series_era
+        description: "Team ERA for the series. Computed as (earned_runs * 9) / innings_pitched."
+      - name: series_whip
+        description: "Team WHIP for the series. Computed as (hits + walks) / innings_pitched."
+      - name: series_k_per_9
+        description: "Strikeouts per 9 innings for the series."
+      - name: series_bb_per_9
+        description: "Walks per 9 innings for the series."
+      - name: series_innings_pitched
+        description: "Total innings pitched across all games in the series."
